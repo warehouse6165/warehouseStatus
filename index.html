@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>WAREHOUSE PACKAGE STATUS</title>
+       <style>
+           /* Style for the input text field */
+           #input {
+               width: 580px;
+           }
+           #sheet_url {
+               width: 680px;
+           }
+           /* Style for the input text field */
+           #inputType {
+               width: 280px; /* Adjust width */
+               font-size: 2.4em; /* Set font size */
+               padding: 0.2em; /* Add padding */
+           }
+           .button-container {
+               display: flex; /* Display elements in a row */
+               align-items: center; /* Align items vertically */
+               font-size: 1.4em; /* Adjust font size */
+               margin-bottom: 10px; /* Add space at the bottom */
+           }
+
+
+
+
+           .button-container label {
+               font-size: 1.4em; /* Set label font size */
+               font-weight: bold; /* Set label font weight */
+               margin-right: 10px; /* Add space between elements */
+           }
+
+
+
+
+           .button-container input[type="text"] {
+               font-size: 1.3em; /* Set input font size */
+               margin-right: 10px; /* Add space between elements */
+           }
+
+
+
+
+           .button-container button {
+               font-size: 1.3em; /* Set button font size */
+               font-weight: bold; /* Set button font weight */
+               padding: 0.1em 0.3em; /* Add padding */
+           }
+           /* Style for highlighted rows */
+           .highlighted {
+               background-color: lightgreen;
+           }
+
+            /* Style for message boxes */
+            .message-box {
+            position: fixed;
+            top: 20px; /* Adjust as needed */
+            right: 20px; /* Adjust as needed */
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            z-index: 1000; /* Ensure it's above other elements */
+            }
+
+            /* Style for success message box */
+            .success-box {
+            background-color: rgba(0, 255, 0, 0.8); /* Green color with transparency */
+            color: white;
+            }
+
+            /* Style for failure message box */
+            .failure-box {
+            background-color: rgba(255, 0, 0, 0.8); /* Red color with transparency */
+            color: white;
+            }
+
+            /* Hide the message boxes by default */
+            .hidden {
+            display: none;
+            }
+
+
+
+
+       </style>
+</head>
+<body>
+   <div id="working-on">
+       {% if sheetname %}
+           Currently working on {{ sheetname }}
+       {% endif %}
+   </div>
+   <form action="/process_sheet" method="post">
+       <label for="sheet_url">URL:</label>
+       <input type="text" id="sheet_url" name="sheet_url" placeholder="Enter Google Sheet URL" style="opacity: 0.6;">
+       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+       <label for="range_name">Sheet:</label>
+       <input type="text" id="range_name" name="range_name" placeholder="Enter Sheet Name" style="opacity: 0.6;">
+       <br>
+       <br>
+       <button type="submit" id="read-sheet">Read Sheet</button>
+       &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+       <button id="save-btn">Save Changes</button>
+   </form>
+   <div id="message-section">
+       {% if filename %}
+           Currently working on {{ filename }}
+       {% endif %}
+   </div>
+   <div id="message-section"></div>
+   <h1>WAREHOUSE PACKAGE STATUS</h1>
+   <div class="button-container">
+       <label for="input">Enter Tracking #: </label>
+       <input type="text" id="input">
+       <button id="process-btn">⏎</button>
+       <button onclick="shipItem()">Ship</button>
+       <button onclick="markOutOfStock()">OOS</button>
+       <button id="items-list">Items</button>
+   </div>
+    <div id="success-message" class="message-box success-box hidden">Success!</div>
+
+
+    <div id="failure-message" class="message-box failure-box hidden">Failed!</div>
+
+   <div id="result">
+       <span id="trackingNumber"></span><br>
+       <span id="item"></span><br>
+       <span id="quantity"></span><br>
+       <span id="pack"></span><br>
+       <span id="name"></span><br>
+       <span id="address"></span><br>
+       <span id="status"></span><br>
+   </div>
+   <div id="statusMessage"></div>
+   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+   <script>
+       var currentTrackingNumber = '';
+       function displayStatusMessage(message) {
+           var statusDiv = document.getElementById("statusMessage");
+           statusDiv.innerHTML = ""; // Clear previous message
+           statusDiv.innerHTML = `<p>${message}</p>`;
+       }
+       function shipItem() {
+           // Send ship request with current tracking number
+           fetch('/ship_last_item', {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json'
+               },
+               body: JSON.stringify({ tracking_number: currentTrackingNumber })
+           })
+           .then(response => response.json())
+           .then(data => {
+               // Display the message
+               displayStatusMessage(data.message);
+           })
+           .catch(error => {
+               console.error('Error:', error);
+               alert("An error occurred.");
+           });
+       }
+
+
+
+
+       function markOutOfStock() {
+           // Send out of stock request with current tracking number
+           fetch('/item_oos', {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json'
+               },
+               body: JSON.stringify({ tracking_number: currentTrackingNumber })
+           })
+           .then(response => response.json())
+           .then(data => {
+               // Display the message in the body
+               displayStatusMessage(data.message);
+
+
+
+
+           })
+           .catch(error => {
+               console.error('Error:', error);
+               alert("An error occurred.");
+           });
+       }
+       function processInput() {
+           var userInput = document.getElementById("input").value;
+           var resultDiv = document.getElementById("result");
+
+
+
+
+               if (userInput.toLowerCase() === 'q') {
+                   resultDiv.textContent = "Exiting the program.";
+                   return;
+               }
+               if (userInput.toLowerCase() === 's') {
+                   shipItem();
+                   // Clear the input field for the next input
+                   document.getElementById("input").value = "";
+                   return;
+               }
+               if (userInput.toLowerCase() === 'o') {
+                   markOutOfStock()
+                   // Clear the input field for the next input
+                   document.getElementById("input").value = "";
+                   return;
+               }
+           // Send user input to the server
+           fetch('/process', {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json'
+               },
+               body: JSON.stringify({ input: userInput })
+           })
+           .then(response => response.json())
+           .then(data => {
+               // Check if the data is an object
+               if (typeof data === 'object') {
+                   // Access the 'result' property of the data object
+                   var result = data.result;
+     
+                   // Split the result string into key-value pairs
+                   var resultPairs = result.split('|').map(pair => pair.split(':'));
+                   var resultObj = Object.fromEntries(resultPairs);
+     
+                   // Check if the result contains an error
+                   if ('error' in resultObj) {
+                       resultDiv.textContent = ""; // Display error message
+                       // Display status message
+                       displayStatusMessage(resultObj.error);
+                     
+                   } else {
+                       // Store the tracking number
+                       currentTrackingNumber = resultObj.tracking_number;
+
+
+
+
+                       // Display the result data
+                       resultDiv.innerHTML = `
+                           <p><strong style="font-size: 1.3em;">Tracking #:</strong> <span style="font-size: 1.3em; font-weight: bold;">${resultObj.tracking_number}</span></p>
+                           <p><span style="font-size: 2.0em; font-weight: bold;">${resultObj.item}</span></p>
+                           ${resultObj.quantity && resultObj.quantity !== 'nan' && parseInt(resultObj.quantity) > 1 ? `<p style="color: red; font-weight: bold; font-size: 1.8em;">Quantity: ${parseInt(resultObj.quantity)}</p>` : ''}
+                           ${resultObj.pack && resultObj.pack !== 'nan' ? `<p style="color: darkgreen; font-weight: bold; font-size: 1.6em;">Pack: ${resultObj.pack}</p>` : ''}
+                           <p><strong style="font-weight: bold; font-size: 1.4em;">Name:</strong> ${resultObj.name}</p>
+                           <p><strong style="font-size: 1.4em;">Address:</strong> ${resultObj.address}</p>
+                           <p><strong style="font-size: 1.4em;">Status:</strong> <span style="color: red; font-weight: bold; font-size: 1.6em;">${resultObj.status}</span></p>
+                       `;
+                       // Display status message
+                       displayStatusMessage(`Result for Tracking # ${resultObj.tracking_number} retrieved successfully.`);
+                       }
+               }
+               else {
+                   // Handle the case where data is not an object
+                   resultDiv.textContent = "An error occurred: Data received is not an object.";
+               }
+               // Clear the input field for the next input
+               document.getElementById("input").value = "";
+           })
+           .catch(error => {
+               console.error('Error:', error);
+               resultDiv.textContent = "An error occurred.";
+           });
+       }
+
+
+
+
+       document.getElementById("input").addEventListener("keypress", function(event) {
+           if (event.key === "Enter" && document.getElementById("input").value.trim() !== "") {
+               processInput();
+           }
+       });
+     
+
+
+
+
+       // Event listener for button click
+       document.getElementById("process-btn").addEventListener("click", function() {
+           if (document.getElementById("input").value.trim() !== "") {
+               processInput();
+           }
+       });
+
+
+
+
+        function readSheet() {
+            var sheetUrl = $('#sheet_url').val().trim();
+            var rangeName = $('#range_name').val().trim();
+            console.log('sheetUrl', sheetUrl);
+            console.log('rangeName', rangeName);
+
+
+            // Check if input fields are empty before falling back to session variables
+            if (!sheetUrl) {
+                sheetUrl = session.get('sheet_url');
+            }
+            if (!rangeName) {
+                rangeName = session.get('range_name');
+            }
+
+
+            console.log('sheetUrl', sheetUrl);
+            console.log('rangeName', rangeName);
+
+
+            $.ajax({
+                url: '/process_sheet',
+                method: 'POST',
+                data: { sheet_url: sheetUrl, range_name: rangeName },
+                success: function(response) {
+                    $('#message-section').text(response.message);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error:', error);
+                    $('#message-section').text('An error occurred while processing the Google Sheet.');
+                }
+            });
+        }
+
+
+        // Event listener for button click
+        document.getElementById("read-sheet").addEventListener("click", function() {
+            readSheet();
+        });
+
+
+
+
+
+
+       function saveChanges() {
+           // Send request to backend when button is clicked
+           fetch('/save-changes', {
+               method: 'POST',
+               headers: {
+                   'Content-Type': 'application/json'
+               },
+               body: JSON.stringify({})
+           })
+           .then(response => {
+               window.location.reload();
+           })
+       }
+
+
+
+
+       // Event listener for button click
+       document.getElementById("save-btn").addEventListener("click", function() {
+           saveChanges();
+       });
+
+       function showSuccessMessage() {
+            document.getElementById("success-message").classList.remove("hidden");
+            setTimeout(function() {
+                document.getElementById("success-message").classList.add("hidden");
+            }, 3000); // Hide after 3 seconds
+        }
+
+        function showFailureMessage() {
+            document.getElementById("failure-message").classList.remove("hidden");
+            setTimeout(function() {
+                document.getElementById("failure-message").classList.add("hidden");
+            }, 3000); // Hide after 3 seconds
+        }
+
+        function saveChanges() {
+            // Send request to backend when button is clicked
+            fetch('/save-changes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => {
+                // Check response status
+                if (response.ok) {
+                    showSuccessMessage(); // Show success message
+                } else {
+                    showFailureMessage(); // Show failure message
+                }
+                window.location.reload();
+            })
+            .catch(error => {
+                showFailureMessage(); // Show failure message if error occurs
+                console.error('Error saving changes:', error);
+            });
+        }
+
+        // Event listener for button click
+        document.getElementById("save-btn").addEventListener("click", function() {
+            saveChanges();
+        });
+
+
+                
+
+
+       // Function to fetch items list from Flask route
+       function fetchItemsList() {
+           fetch('/items-list')
+           .then(response => response.json())
+           .then(data => {
+               displayItemsList(data); // Call function to display items list
+           })
+           .catch(error => {
+               console.error('Error fetching items list:', error);
+               alert('An error occurred while fetching items list.');
+           });
+       }
+
+
+
+
+       // Function to display items list in HTML table with clickable rows
+       function displayItemsList(data) {
+           // Get the container element where items list will be displayed
+           let container = document.getElementById('result');
+           container.innerHTML = ''; // Clear previous content
+
+
+
+
+           // Create a table element
+           let table = document.createElement('table');
+           table.classList.add('items-table'); // Add class for styling
+
+
+
+
+           // Create table header row
+           let headerRow = document.createElement('tr');
+           let headers = ['Product Description', 'Count'];
+           headers.forEach(headerText => {
+               let header = document.createElement('th');
+               header.textContent = headerText;
+               headerRow.appendChild(header);
+           });
+           table.appendChild(headerRow);
+
+
+
+
+           // Iterate over the data and create table rows
+           data.forEach(item => {
+               let row = document.createElement('tr');
+               // Set up click event listener on row
+               row.addEventListener('click', function() {
+                   // Toggle highlighting on click
+                   row.classList.toggle('highlighted');
+               });
+
+
+
+
+               // Create table cells for product description and count
+               let cell1 = document.createElement('td');
+               cell1.textContent = item.product_description;
+               row.appendChild(cell1);
+
+
+
+
+               let cell2 = document.createElement('td');
+               cell2.textContent = item.count;
+               row.appendChild(cell2);
+
+
+
+
+               // Append row to table
+               table.appendChild(row);
+           });
+
+
+
+
+           // Append the table to the container
+           container.appendChild(table);
+       }
+
+
+
+
+       // Add onclick event to the button
+       document.getElementById('items-list').onclick = function() {
+           fetchItemsList(); // Fetch items list when button is clicked
+       };
+
+
+
+
+   </script>
+</body>
+</html>
